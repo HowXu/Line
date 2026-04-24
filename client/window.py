@@ -11,6 +11,8 @@ from client.ui_component import (
 )
 from client.ui_composite import CompositeElement, LeafElement, UICompositeBuilder
 from client.ui_decorator import ScrollbarHiddenDecorator, EventBindingDecorator
+from client.ui_facade import ChatRendererFacade
+from client.ui_flyweight import get_flyweight_factory, make_circular_image
 
 # 设置主题
 ctk.set_appearance_mode("dark")
@@ -37,7 +39,14 @@ class MainWindow:
         self.friend_name = "Eva"
         self.current_user = "me"
         
+        # 初始化享元工厂
+        self.flyweight_factory = get_flyweight_factory()
+        
+        # 先初始化渲染外观（在 setup_ui 之前，因为 setup_ui 会调用 load_histories）
+        self.renderer = None  # 先设置为 None
+        
         self.setup_ui()
+        
         # 通过 init 更新 DeepSeek 上下文
 
     def setup_ui(self):
@@ -49,6 +58,9 @@ class MainWindow:
         
         input_area = self.build_input_area()
         input_area.build(self.window)
+        
+        # 初始化渲染外观（在 UI 组件创建完成后）
+        self.renderer = ChatRendererFacade(self.chat_frame)
         
         self.load_histories()
 
@@ -146,102 +158,16 @@ class MainWindow:
         
         return input_area
         
-    # 这是一个client方法 负责发送消息和在前端展示
+    # 这是一个 client 方法 负责发送消息和在前端展示
     def render_send(self, text: str):
-        # chat line
-        now = datetime.now()
-        time_str = now.strftime("%H:%M")
+        """渲染发送的消息（使用外观模式）"""
+        self.renderer.render_message(text, "me")
         
-        # 消息容器
-        msg_container = ctk.CTkFrame(
-            self.chat_frame,
-            fg_color="transparent"
-        )
-        msg_container.pack(fill="x", pady=5)
-        # 自己的消息靠右
-        msg_frame = ctk.CTkFrame(
-            msg_container,
-            fg_color=ctk.ThemeManager.theme["CTkButton"]["fg_color"],
-            corner_radius=15
-        )
-        msg_frame.pack(side="right", padx=10)
-        
-        # 消息内容
-        msg_label = ctk.CTkLabel(
-            msg_frame,
-            text=text,
-            font=("Segoe UI", 13),
-            wraplength=250,
-            justify="left"
-        )
-        msg_label.pack(padx=12, pady=8)
-        
-        # 时间标签
-        time_label = ctk.CTkLabel(
-            msg_container,
-            text=time_str,
-            font=("Segoe UI", 10),
-            text_color="gray"
-        )
-        time_label.pack(side="right", padx=5)
-        # 更新窗口
-        self.chat_frame._parent_canvas.update_idletasks()
-        self.chat_frame._parent_canvas.yview_moveto(1.0)
-        
-    # 这是一个Client方法 负责接收消息和在前端展示
+    # 这是一个 Client 方法 负责接收消息和在前端展示
     def render_receive(self, text: str):
-        # chat line
-        now = datetime.now()
-        time_str = now.strftime("%H:%M")
-        
-        # 消息容器
-        msg_container = ctk.CTkFrame(
-            self.chat_frame,
-            fg_color="transparent"
-        )
-        msg_container.pack(fill="x", pady=5)
-        
-        # 对方的消息靠左
-        # 头像
-        avatar_img = make_circular_image("resources/ta.png", size=30)
-        avatar = ctk.CTkLabel(
-            msg_container,
-            image=avatar_img,
-            text="",
-            width=40,
-            height=40
-        )
-        avatar.pack(side="left")
-        
-        # 消息气泡
-        msg_frame = ctk.CTkFrame(
-            msg_container,
-            fg_color=ctk.ThemeManager.theme["CTkFrame"]["top_fg_color"],
-            corner_radius=15
-        )
-        msg_frame.pack(side="left", padx=5)
-        
-        msg_label = ctk.CTkLabel(
-            msg_frame,
-            text=text,
-            font=("Segoe UI", 13),
-            wraplength=250,
-            justify="left"
-        )
-        msg_label.pack(padx=12, pady=8)
-        
-        # 时间标签
-        time_label = ctk.CTkLabel(
-            msg_container,
-            text=time_str,
-            font=("Segoe UI", 10),
-            text_color="gray"
-        )
-        time_label.pack(side="left", padx=5)
-        
-        self.chat_frame._parent_canvas.update_idletasks()
-        # 滚动到底部
-        self.chat_frame._parent_canvas.yview_moveto(1.0)
+        """渲染接收的消息（使用外观模式）"""
+        avatar_img = self.flyweight_factory.get_circular_image("resources/ta.png", size=30)
+        self.renderer.render_message(text, "ta", avatar_img)
         
     # 这是一个需要调用后端的方法
     def input_message(self):
@@ -282,26 +208,23 @@ class MainWindow:
             self.window.after(0, lambda: self.render_receive(response))
         
     def load_histories(self):
+        """加载历史消息（使用外观模式的批量渲染）"""
         row = self.dataManager.data.display_conext
+        messages = []
+        
+        # 准备头像（享元模式）
+        avatar_img = self.flyweight_factory.get_circular_image("resources/ta.png", size=30)
+        
         for msg in row:
             is_me = (msg['sender'] == "me")
-            if is_me:
-                self.render_send(msg['text'])
-            else:
-                self.render_receive(msg['text'])
+            messages.append({
+                "text": msg['text'],
+                "sender": msg['sender'],
+                "avatar_image": avatar_img if not is_me else None
+            })
+        
+        # 批量渲染
+        self.renderer.render_messages_batch(messages)
             
     def run(self):
         self.window.mainloop()
-
-# 头像设置
-def make_circular_image(image_path, size=40):
-    img = Image.open(image_path).resize((size, size), Image.Resampling.LANCZOS)
-    
-    mask = Image.new("L", (size, size), 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse([(0, 0), (size, size)], fill=255)
-    
-    circular_img = Image.new("RGBA", (size, size))
-    circular_img.paste(img, (0, 0), mask)
-    
-    return ctk.CTkImage(light_image=circular_img, dark_image=circular_img, size=(size, size))

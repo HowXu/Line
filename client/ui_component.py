@@ -1,25 +1,19 @@
 from abc import ABC, abstractmethod
 import customtkinter as ctk
 
-# 桥接模式 - 抽象部分
-# 将 UI 组件的抽象与实现分离
+# 桥接模式
 
 class UIComponent(ABC):
-    """UI 组件抽象基类"""
-    
     @abstractmethod
     def create(self, parent) -> any:
-        """创建组件"""
         pass
-    
+
     @abstractmethod
     def get_component(self):
-        """获取底层组件实例"""
         pass
 
 
 class FrameComponent(UIComponent):
-    """框架组件"""
     
     def __init__(self, height=None, corner_radius=None, bg_color=None, fg_color=None, **kwargs):
         self.height = height
@@ -48,7 +42,6 @@ class FrameComponent(UIComponent):
 
 
 class LabelComponent(UIComponent):
-    """标签组件"""
     
     def __init__(self, text="", font=None, text_color=None, image=None, **kwargs):
         self.text = text
@@ -74,7 +67,6 @@ class LabelComponent(UIComponent):
 
 
 class ButtonComponent(UIComponent):
-    """按钮组件"""
     
     def __init__(self, text="", width=None, height=None, font=None, 
                  fg_color=None, hover_color=None, command=None, **kwargs):
@@ -113,7 +105,6 @@ class ButtonComponent(UIComponent):
 
 
 class ScrollableFrameComponent(UIComponent):
-    """可滚动框架组件"""
     
     def __init__(self, bg_color=None, fg_color=None, **kwargs):
         self.bg_color = bg_color
@@ -138,7 +129,6 @@ class ScrollableFrameComponent(UIComponent):
 
 
 class TextboxComponent(UIComponent):
-    """文本框组件"""
     
     def __init__(self, height=None, font=None, wrap=None, **kwargs):
         self.height = height

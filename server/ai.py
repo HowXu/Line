@@ -5,7 +5,7 @@ import os
 from openai import OpenAI
 from server.data import DataManager
 from server.sql import SQLManager
-from server.logger import *
+from server.log_formatter_factory import LogFormatterFactory, get_logger
 
 load_dotenv()
 api_key_loaded = os.getenv("API_KEY")
@@ -41,8 +41,24 @@ class DeepSeekAPI:
                 }}
                 """})
         
-    # 获取新的回复 输入的text sender一定是me
+    # 获取新的回复 输入的 text sender 一定是 me
     def fetch(self, text):
+        # 使用工厂模式获取请求日志策略
+        request_logger = get_logger('request')
+        
+        # 构建请求数据
+        request_data = {
+            "role": "user",
+            "content": {
+                "message": text,
+                "send_time": str(datetime.now()),
+                "should_reply": None
+            }
+        }
+        
+        # 记录请求日志（带截断）
+        request_logger.log(request_data, prefix="API Request", max_length=300)
+        
         self.dataManager.add_prompt({"role": "user", "content": f"""
                 {{
                     "message": "{text}",
@@ -50,13 +66,14 @@ class DeepSeekAPI:
                     "should_reply": null
                 }}
                 """})
-        print(self.dataManager.data.prompt)
+        
         # 更新两栈
-        self.dataManager.add_inner_context("me",text)
-        self.dataManager.add_display_context("me",text)
+        self.dataManager.add_inner_context("me", text)
+        self.dataManager.add_display_context("me", text)
         # 更新数据库
-        self.sqlManager.save_new("me",text)
-        # 调用API
+        self.sqlManager.save_new("me", text)
+        
+        # 调用 API
         response = client.chat.completions.create(
             model=model_loaded,
             messages=self.dataManager.data.prompt,
@@ -64,19 +81,27 @@ class DeepSeekAPI:
             temperature=0.8
         )
         
-        # 适配器模式
-        logger = LoggerAdapter(DebugLogger())
-        adapter = LoggerAdapter(logger)
-        adapter.log(response)
+        # 使用工厂模式获取响应日志策略
+        response_logger = get_logger('response')
+        response_logger.log(response, prefix="API Response", max_length=500)
 
-        # 解析返回的json串
-        data = data = json.loads(response.choices[0].message.content)
+        # 解析返回的 json 串
+        data = json.loads(response.choices[0].message.content)
+        
         # 更新数据库
         return_content = data['message']
         should_reply = data['should_reply']
-        self.sqlManager.save_new("ta",return_content)
+        self.sqlManager.save_new("ta", return_content)
+        
         # 更新两栈
-        self.dataManager.add_inner_context("ta",return_content)
-        self.dataManager.add_display_context("ta",return_content)
+        self.dataManager.add_inner_context("ta", return_content)
+        self.dataManager.add_display_context("ta", return_content)
 
-        return (True,return_content)
+        # 使用 API 日志策略记录返回内容
+        api_logger = get_logger('api')
+        api_logger.log({
+            "message": return_content,
+            "should_reply": should_reply
+        }, prefix="API Return", max_length=200)
+
+        return (True, return_content)

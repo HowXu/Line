@@ -34,7 +34,7 @@ Line is an elegant AI chat client application that simulates conversation scenar
 
 - 🎨 **现代化 UI** - 基于 CustomTkinter 的深色主题界面
 - 🤖 **AI 驱动** - 集成 DeepSeek API，提供智能对话能力
-- 🏗️ **设计模式** - 应用 8 种设计模式，构建清晰的代码架构
+- 🏗️ **设计模式** - 应用 **12 种**设计模式，构建清晰的代码架构
 - 💾 **数据持久化** - PostgreSQL 数据库存储聊天记录
 - 🌐 **双语支持** - 完整的中英文文档和注释
 
@@ -57,14 +57,25 @@ Line is an elegant AI chat client application that simulates conversation scenar
 - **psycopg2** - PostgreSQL 适配器
 
 ### 设计模式 | Design Patterns
-1. **抽象工厂模式 (Abstract Factory)** - SQL 管理器创建
-2. **单例模式 (Singleton)** - 主窗口管理
-3. **工厂方法模式 (Factory Method)** - 管理器工厂
-4. **适配器模式 (Adapter)** - 日志记录器
-5. **建造者模式 (Builder)** - 数据对象构建
+
+#### 创建型模式 (Creational Patterns) - 5 种
+1. **单例模式 (Singleton)** - 主窗口、享元工厂 ⭐
+2. **抽象工厂模式 (Abstract Factory)** - SQL 管理器创建
+3. **简单工厂模式 (Simple Factory)** - 管理器工厂、日志格式化器工厂 ⭐
+4. **工厂方法模式 (Factory Method)** - 日志策略创建 ⭐
+5. **建造者模式 (Builder)** - UI 组合构建、数据对象构建
+
+#### 结构型模式 (Structural Patterns) - 6 种
 6. **桥接模式 (Bridge)** - UI 组件抽象 ⭐
 7. **组合模式 (Composite)** - UI 组件树 ⭐
 8. **装饰模式 (Decorator)** - UI 功能增强 ⭐
+9. **外观模式 (Facade)** - 消息渲染外观 ⭐ NEW
+10. **享元模式 (Flyweight)** - UI 对象缓存 ⭐ NEW
+11. **代理模式 (Proxy)** - 应用程序启动代理 ⭐ NEW
+12. **适配器模式 (Adapter)** - 日志记录器
+
+#### 行为型模式 (Behavioral Patterns) - 1 种
+13. **策略模式 (Strategy)** - 日志格式化策略 ⭐ NEW
 
 ---
 
@@ -190,17 +201,21 @@ SheJiMode/
 │   ├── window.py          # 主窗口（单例模式）
 │   ├── ui_component.py    # UI 组件（桥接模式）⭐
 │   ├── ui_composite.py    # UI 组合（组合模式）⭐
-│   └── ui_decorator.py    # UI 装饰器（装饰模式）⭐
+│   ├── ui_decorator.py    # UI 装饰器（装饰模式）⭐
+│   ├── ui_facade.py       # UI 渲染外观（外观模式）⭐ NEW
+│   └── ui_flyweight.py    # UI 享元工厂（享元模式）⭐ NEW
 ├── server/                # 服务端逻辑模块
-│   ├── factory.py         # 管理器工厂（工厂模式）
+│   ├── factory.py         # 管理器工厂（简单工厂模式）
 │   ├── sql.py             # SQL 管理器（抽象工厂模式）
 │   ├── data.py            # 数据管理（建造者模式）
 │   ├── ai.py              # AI API 集成
-│   └── logger.py          # 日志系统（适配器模式）
+│   ├── logger.py          # 日志适配器（适配器模式）
+│   ├── log_strategy.py    # 日志策略（工厂方法模式）⭐ NEW
+│   └── log_formatter_factory.py  # 日志格式化器工厂（简单工厂模式）⭐ NEW
 ├── resources/             # 资源文件
 │   ├── icon.ico          # 应用图标
 │   └── ta.png            # 头像图片
-├── main.py               # 程序入口
+├── main.py               # 程序入口（代理模式）⭐ NEW
 ├── .env                  # 环境变量配置（需自行创建）
 └── README.md             # 项目文档
 ```
@@ -253,6 +268,128 @@ class NewDecorator(UIDecorator):
 2. **保持简洁** - 优先选择最简单的解决方案
 3. **可测试性** - 确保代码易于单元测试
 4. **文档化** - 为复杂逻辑添加清晰的注释
+
+---
+
+## 🎨 设计模式详解 | Design Patterns Details
+
+### 创建型模式 | Creational Patterns
+
+#### 1. 单例模式 (Singleton)
+**文件**: [`window.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/window.py#L21-L27), [`ui_flyweight.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_flyweight.py#L9-L18)
+```python
+class MainWindow:
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+```
+
+#### 2. 抽象工厂模式 (Abstract Factory)
+**文件**: [`sql.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/sql.py#L15-L30)
+```python
+class SQLManager(ABC):
+    @abstractmethod
+    def connect(self): pass
+    @abstractmethod
+    def save_new(self, sender, text): pass
+
+class PostgreSQLFactory:
+    def create_sql_manager(self, dataManager):
+        return PostgreSQLManager(dataManager)
+```
+
+#### 3. 简单工厂模式 (Simple Factory)
+**文件**: [`factory.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/factory.py#L5-L23), [`log_formatter_factory.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/log_formatter_factory.py#L10-L43)
+```python
+class LogFormatterFactory:
+    @classmethod
+    def create(cls, log_type: str) -> LogStrategy:
+        return cls._strategies[log_type]()
+```
+
+#### 4. 工厂方法模式 (Factory Method)
+**文件**: [`log_strategy.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/log_strategy.py#L7-L154)
+```python
+class LogStrategy(ABC):
+    @abstractmethod
+    def format(self, data: Any, max_length: int = 200) -> str: pass
+    
+    @abstractmethod
+    def log(self, data: Any, prefix: str = "", max_length: int = 200): pass
+```
+
+#### 5. 建造者模式 (Builder)
+**文件**: [`ui_composite.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_composite.py#L68-L123)
+```python
+class UICompositeBuilder:
+    def frame(self, **kwargs) -> 'UICompositeBuilder': ...
+    def label(self, **kwargs) -> 'UICompositeBuilder': ...
+    def button(self, **kwargs) -> 'UICompositeBuilder': ...
+```
+
+### 结构型模式 | Structural Patterns
+
+#### 6. 桥接模式 (Bridge)
+**文件**: [`ui_component.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_component.py#L5-L10)
+
+#### 7. 组合模式 (Composite)
+**文件**: [`ui_composite.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_composite.py#L5-L23)
+
+#### 8. 装饰模式 (Decorator)
+**文件**: [`ui_decorator.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_decorator.py#L5-L24)
+
+#### 9. 外观模式 (Facade) ⭐ NEW
+**文件**: [`ui_facade.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_facade.py#L8-L162)
+```python
+class ChatRendererFacade:
+    def render_message(self, text: str, sender: str, avatar_image=None):
+        """统一的渲染接口"""
+        if sender == "me":
+            self.message_renderer.render_send_message(text)
+        elif sender == "ta":
+            self.message_renderer.render_receive_message(text, avatar_image)
+```
+
+#### 10. 享元模式 (Flyweight) ⭐ NEW
+**文件**: [`ui_flyweight.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/client/ui_flyweight.py#L6-L153)
+```python
+class UIFlyweightFactory:
+    _flyweights = {}  # 缓存可复用的配置
+    _image_cache = {}  # 缓存图片对象
+    
+    def get_circular_image(self, image_path: str, size: int = 40):
+        # 缓存圆形头像图片
+        cache_key = f"{image_path}_{size}"
+        if cache_key in self._image_cache:
+            return self._image_cache[cache_key]
+```
+
+#### 11. 代理模式 (Proxy) ⭐ NEW
+**文件**: [`main.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/main.py#L7-L137)
+```python
+class ApplicationProxy(IApplication):
+    def launch(self):
+        self._pre_launch_checks()  # 启动前检查
+        if self.real_app is None:
+            self.real_app = RealApplication()
+        self.real_app.launch()
+```
+
+#### 12. 适配器模式 (Adapter)
+**文件**: [`logger.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/logger.py#L1-L18)
+
+### 行为型模式 | Behavioral Patterns
+
+#### 13. 策略模式 (Strategy) ⭐ NEW
+**文件**: [`log_strategy.py`](file:///c:/Users/HowXu/Desktop/SchoolShit/SheJiMode/server/log_strategy.py)
+```python
+class APILogStrategy(LogStrategy): ...
+class RequestLogStrategy(LogStrategy): ...
+class ResponseLogStrategy(LogStrategy): ...
+class DebugLogStrategy(LogStrategy): ...
+```
 
 ---
 

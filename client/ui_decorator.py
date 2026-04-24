@@ -2,10 +2,8 @@ from client.ui_component import UIComponent
 from client.ui_composite import UIElement, LeafElement, CompositeElement
 
 # 装饰模式
-# 动态地为组件添加额外功能，而不改变组件本身
 
 class UIDecorator(UIElement):
-    """UI 装饰器基类"""
     
     def __init__(self, wrapped: UIElement):
         self.wrapped = wrapped
@@ -27,7 +25,6 @@ class UIDecorator(UIElement):
 
 
 class ScrollbarHiddenDecorator(UIDecorator):
-    """隐藏滚动条装饰器"""
     
     def build(self, parent):
         widget = self.wrapped.build(parent)
@@ -37,7 +34,6 @@ class ScrollbarHiddenDecorator(UIDecorator):
 
 
 class AutoScrollDecorator(UIDecorator):
-    """自动滚动到底部装饰器"""
     
     def build(self, parent):
         widget = self.wrapped.build(parent)
@@ -48,7 +44,6 @@ class AutoScrollDecorator(UIDecorator):
 
 
 class BorderedDecorator(UIDecorator):
-    """添加边框装饰器"""
     
     def __init__(self, wrapped: UIElement, border_width: int = 2, border_color: str = "gray"):
         super().__init__(wrapped)
@@ -63,7 +58,6 @@ class BorderedDecorator(UIDecorator):
 
 
 class StyledDecorator(UIDecorator):
-    """样式增强装饰器"""
     
     def __init__(self, wrapped: UIElement, **style_kwargs):
         super().__init__(wrapped)
@@ -81,7 +75,6 @@ class StyledDecorator(UIDecorator):
 
 
 class EventBindingDecorator(UIDecorator):
-    """事件绑定装饰器"""
     
     def __init__(self, wrapped: UIElement, events: list = None):
         super().__init__(wrapped)
@@ -98,7 +91,6 @@ class EventBindingDecorator(UIDecorator):
 
 
 class CompositeDecorator(UIDecorator):
-    """组合装饰器，可以应用多个装饰"""
     
     def __init__(self, wrapped: UIElement, decorators: list = None):
         super().__init__(wrapped)
