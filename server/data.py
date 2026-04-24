@@ -50,25 +50,44 @@ system_prompt = """
 
 """
 
+class Data:
+    def __init__(self):
+        self.inner_conext = self.display_conext = self.prompt = None
+    def __str__(self):
+        return str.dumps(self.__dict__, ensure_ascii=False)
+# 建造者模式
+class DataBuilder:
+    def __init__(self):
+        self.data = Data()
+    def set_inner_conext(self,inner_conext):
+        self.data.inner_conext = inner_conext # 这个存储全体上下文
+        return self
+    def set_display_conext(self,display_conext):
+        self.data.display_conext = display_conext # 这个用来存储对话内容
+        return self
+    def set_prompt(self,prompt):
+        self.data.prompt = prompt # 这个用来存储给AI的prompt
+        return self
+    def build(self):
+        return self.data
+
 class DataManager():
     def __init__(self):
-        self.inner_conext = [] # 这个存储全体上下文
-        self.display_conext = [] # 这个用来存储对话内容
-        self.prompt = []
-        self.prompt.append({"role": "system", "content": system_prompt}) # 这个用来存储给AI的prompt
+        self.data = DataBuilder().set_display_conext([]).set_inner_conext([]).set_prompt([]).build()
+        self.data.prompt.append({"role": "system", "content": system_prompt}) 
     
     # 存储到inner_context和display_context
     def add_inner_context(self,sender,text,time = datetime.now()):
-        self.inner_conext.append({
+        self.data.inner_conext.append({
             'text': text,
             'sender': sender,
             'time': time
         })
     def add_display_context(self,sender,text,time = datetime.now().strftime("%H:%M")):
-        self.display_conext.append({
+        self.data.display_conext.append({
             'text': text,
             'sender': sender,
             'time': time
         })
     def add_prompt(self,new):
-        self.prompt.append(new)
+        self.data.prompt.append(new)

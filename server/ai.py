@@ -1,15 +1,20 @@
 from datetime import datetime
 import json
-
+from dotenv import load_dotenv
+import os
 from openai import OpenAI
-
 from server.data import DataManager
 from server.sql import SQLManager
+from server.logger import *
 
+load_dotenv()
+api_key_loaded = os.getenv("API_KEY")
+base_url_loaded = os.getenv("BASE_URL")
+model_loaded = os.getenv("MODEL")
 # 初始化客户端
 client = OpenAI(
-    api_key="sk-c18d6e09e8f14a84849e6597b42e8c01",
-    base_url="https://api.deepseek.com"
+    api_key=api_key_loaded,
+    base_url=base_url_loaded
 )
 
 class DeepSeekAPI:
@@ -18,7 +23,7 @@ class DeepSeekAPI:
         self.sqlManager = sqlManager
         # 这个要放在sql链接之后
         # 构建就全部写True吧
-        for msg in self.dataManager.inner_conext:
+        for msg in self.dataManager.data.inner_conext:
             if msg["sender"] == "me":
                 self.dataManager.add_prompt({"role": "user", "content": f"""
                 {{
@@ -45,7 +50,7 @@ class DeepSeekAPI:
                     "should_reply": null
                 }}
                 """})
-        print(self.dataManager.prompt)
+        print(self.dataManager.data.prompt)
         # 更新两栈
         self.dataManager.add_inner_context("me",text)
         self.dataManager.add_display_context("me",text)
@@ -53,12 +58,17 @@ class DeepSeekAPI:
         self.sqlManager.save_new("me",text)
         # 调用API
         response = client.chat.completions.create(
-            model="deepseek-reasoner",
-            messages=self.dataManager.prompt,
+            model=model_loaded,
+            messages=self.dataManager.data.prompt,
             stream=False,
             temperature=0.8
         )
-        print(response)
+        
+        # 适配器模式
+        logger = LoggerAdapter(DebugLogger())
+        adapter = LoggerAdapter(logger)
+        adapter.log(response)
+
         # 解析返回的json串
         data = data = json.loads(response.choices[0].message.content)
         # 更新数据库

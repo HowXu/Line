@@ -5,12 +5,26 @@ import threading
 import time
 from server.data import DataManager
 from server.ai import DeepSeekAPI
+from client.ui_component import (
+    FrameComponent, LabelComponent, ButtonComponent, 
+    ScrollableFrameComponent, TextboxComponent
+)
+from client.ui_composite import CompositeElement, LeafElement, UICompositeBuilder
+from client.ui_decorator import ScrollbarHiddenDecorator, EventBindingDecorator
 
 # 设置主题
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 class MainWindow:
+    # 主页面遵循单例模式
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            return cls._instance
+        return cls._instance
+
     def __init__(self,dataManager: DataManager,deepSeekAPI: DeepSeekAPI):
         self.dataManager = dataManager # 这个用来管理对话上下文 因为同时涉及前端渲染和后端推送
         self.API = deepSeekAPI # 上下文统一
@@ -24,42 +38,42 @@ class MainWindow:
         self.current_user = "me"
         
         self.setup_ui()
-        # 通过init更新DeepSeek上下文
+        # 通过 init 更新 DeepSeek 上下文
 
-        
     def setup_ui(self):
-        # ========== 顶部标题栏 ==========
-        self.top_frame = ctk.CTkFrame(
-            self.window, 
-            height=60, 
+        top_header = self.build_top_header()
+        top_header.build(self.window)
+        
+        chat_area = self.build_chat_area()
+        chat_area.build(self.window)
+        
+        input_area = self.build_input_area()
+        input_area.build(self.window)
+        
+        self.load_histories()
+
+    def build_top_header(self) -> CompositeElement:
+        top_frame = FrameComponent(
+            height=60,
             corner_radius=0,
             fg_color=ctk.ThemeManager.theme["CTkFrame"]["top_fg_color"]
         )
-        self.top_frame.pack(fill="x")
-        self.top_frame.pack_propagate(False)
-
-        # 好友信息
-        self.friend_label = ctk.CTkLabel(
-            self.top_frame,
+        top_header = CompositeElement(top_frame, {"fill": "x", "padx": 0, "pady": 0})
+        
+        friend_label = LabelComponent(
             text=self.friend_name,
             font=("Segoe UI", 18, "bold")
         )
+        top_header.add_child(LeafElement(friend_label, {"side": "left", "padx": (25, 0)}))
         
-        self.friend_label.pack(side="left", padx=(25,0))
-        
-        # 在线状态
-        self.status_label = ctk.CTkLabel(
-            self.top_frame,
+        status_label = LabelComponent(
             text="● 在线",
             font=("Segoe UI", 11),
             text_color="green"
         )
+        top_header.add_child(LeafElement(status_label, {"side": "left", "padx": (15, 0)}))
         
-        self.status_label.pack(side="left", padx=(15,0))
-        
-        # 菜单按钮
-        menu_btn = ctk.CTkButton(
-            self.top_frame,
+        menu_btn = ButtonComponent(
             text="⋯",
             width=40,
             height=40,
@@ -67,48 +81,70 @@ class MainWindow:
             fg_color="transparent",
             hover_color=("gray70", "gray30")
         )
-        menu_btn.pack(side="right", padx=10, pady=10)
+        top_header.add_child(LeafElement(menu_btn, {"side": "right", "padx": 10, "pady": 10}))
         
-        # ========== 聊天记录区域 ==========
-        self.chat_frame = ctk.CTkScrollableFrame(
-            self.window,
-            fg_color="transparent"
-        )
-        self.chat_frame.pack(fill="both", expand=True, pady=10)
-        self.chat_frame._scrollbar.configure(width=0) # No滚动条
+        original_build = top_header.build
+        def build_and_fix(parent):
+            widget = original_build(parent)
+            widget.pack_propagate(False)
+            return widget
+        top_header.build = build_and_fix
         
-        # ========== 底部输入区域 ==========
-        self.bottom_frame = ctk.CTkFrame(self.window, corner_radius=0)
-        self.bottom_frame.pack(fill="x", padx=10, pady=10)
+        return top_header
+    
+    def build_chat_area(self) -> CompositeElement:
+        chat_frame = ScrollableFrameComponent(fg_color="transparent")
+        chat_area = CompositeElement(chat_frame, {"fill": "both", "expand": True, "pady": 10})
         
-        # 输入框
-        self.input_text = ctk.CTkTextbox(
-            self.bottom_frame,
+        chat_area = ScrollbarHiddenDecorator(chat_area)
+        
+        self.chat_frame = None
+        original_build = chat_area.build
+        def build_and_store(parent):
+            widget = original_build(parent)
+            self.chat_frame = widget
+            return widget
+        chat_area.build = build_and_store
+        
+        return chat_area
+    
+    def build_input_area(self) -> CompositeElement:
+        bottom_frame = FrameComponent(corner_radius=0, height=120)
+        input_area = CompositeElement(bottom_frame, {"fill": "x", "padx": 10, "pady": 10})
+        
+        input_text = TextboxComponent(
             height=80,
             font=("Segoe UI", 13),
             wrap="word"
         )
-        self.input_text.pack(fill="x", padx=5, pady=(5, 0))
+        input_text_leaf = LeafElement(input_text, {"fill": "x", "padx": 5, "pady": (5, 0)})
+        input_text_leaf = EventBindingDecorator(input_text_leaf, [
+            ("<Return>", self.render_send_event),
+            ("<Shift-Return>", self.new_line)
+        ])
+        input_area.add_child(input_text_leaf)
         
-        # 绑定回车发送
-        self.input_text.bind("<Return>", self.render_send_event)
-        self.input_text.bind("<Shift-Return>", self.new_line)
+        button_frame = FrameComponent(fg_color="transparent", height=40)
+        button_frame_composite = CompositeElement(button_frame, {"fill": "x", "pady": 5})
+        input_area.add_child(button_frame_composite)
         
-        # 按钮行
-        self.button_frame = ctk.CTkFrame(self.bottom_frame, fg_color="transparent")
-        self.button_frame.pack(fill="x", pady=5)
-        
-        # 发送按钮
-        self.send_btn = ctk.CTkButton(
-            self.button_frame,
+        send_btn = ButtonComponent(
             text="发送",
             width=80,
             command=self.input_message
         )
-        self.send_btn.pack(side="right", padx=5)
+        button_frame_composite.add_child(LeafElement(send_btn, {"side": "right", "padx": 5}))
         
-        # 加载已有的信息
-        self.load_histories()
+        self.input_text = None
+        original_build = input_area.build
+        def build_and_store(parent):
+            widget = original_build(parent)
+            if hasattr(input_text, 'component'):
+                self.input_text = input_text.component
+            return widget
+        input_area.build = build_and_store
+        
+        return input_area
         
     # 这是一个client方法 负责发送消息和在前端展示
     def render_send(self, text: str):
@@ -246,7 +282,7 @@ class MainWindow:
             self.window.after(0, lambda: self.render_receive(response))
         
     def load_histories(self):
-        row = self.dataManager.display_conext
+        row = self.dataManager.data.display_conext
         for msg in row:
             is_me = (msg['sender'] == "me")
             if is_me:

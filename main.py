@@ -1,14 +1,10 @@
 from client.window import MainWindow
-from server.ai import DeepSeekAPI
-from server.data import DataManager
-from server.sql import SQLManager
+from server.factory import ManagerFactory
 
 def main():
-    dataManager = DataManager()
-    sqlManager = SQLManager(dataManager)
-    sqlManager.connect()
-    sqlManager.load_history_to_both()
-    deepseekAPI = DeepSeekAPI(dataManager,sqlManager)
+    factory = ManagerFactory()
+    dataManager = factory.get_manager("data")
+    deepseekAPI = factory.get_manager("api")
     app = MainWindow(dataManager,deepseekAPI)
     app.run()
 

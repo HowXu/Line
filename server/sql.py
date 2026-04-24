@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2 import OperationalError
-
 from server.data import DataManager
+from abc import ABC, abstractmethod
 
 # database location
 conn_params = {
@@ -12,9 +12,27 @@ conn_params = {
     'password': 'howxu'
 }
 
+# 抽象工厂模式
+class SQLManager(ABC):
+    @abstractmethod
+    def connect(self):
+        pass
+    @abstractmethod
+    def load_history_to_both(self):
+        pass
+    @abstractmethod
+    def load_history(self):
+        pass
+    @abstractmethod
+    def save_new(self, sender, text):
+        pass
+    @abstractmethod
+    def close(self):
+        pass
 
-class SQLManager:
-    def __init__(self,dataManager: DataManager):
+# 具体产品：PostgreSQL 实现
+class PostgreSQLManager(SQLManager):
+    def __init__(self, dataManager: DataManager):
         self.connection = None
         self.cursor = None
         self.dataManager = dataManager
@@ -24,10 +42,9 @@ class SQLManager:
             self.connection = psycopg2.connect(**conn_params)
             self.cursor = self.connection.cursor()
         except OperationalError as e:
-            print(f"连接失败: {e}")
+            print(f"连接失败：{e}")
     
     def load_history_to_both(self):
-        # 实际上不会是None 因为会在connect之前就报错
         try:
             self.cursor.execute("""
                                 SELECT * FROM (
@@ -46,10 +63,9 @@ class SQLManager:
                     self.dataManager.add_display_context("ta",row[2],row[4])
                     self.dataManager.add_inner_context("ta",row[2],row[4])
         except Exception as e:
-            print(f"查询失败: {e}")
+            print(f"查询失败：{e}")
             
     def load_history(self):
-        # 实际上不会是None 因为会在connect之前就报错
         try:
             self.cursor.execute("""
                                 SELECT * FROM (
@@ -60,7 +76,7 @@ class SQLManager:
                                 ORDER BY updated_at ASC;""")
             return self.cursor.fetchall()
         except Exception as e:
-            print(f"查询失败: {e}")
+            print(f"查询失败：{e}")
             return []
         
     def save_new(self, sender, text):
@@ -71,10 +87,21 @@ class SQLManager:
             )
             self.connection.commit()
         except Exception as e:
-            print(f"保存消息失败: {e}")
+            print(f"保存消息失败：{e}")
     
     def close(self):
         if self.cursor:
             self.cursor.close()
         if self.connection:
             self.connection.close()
+
+# 抽象工厂接口
+class SQLFactory(ABC):
+    @abstractmethod
+    def create_sql_manager(self, dataManager: DataManager) -> SQLManager:
+        pass
+
+# 具体工厂：PostgreSQL 工厂
+class PostgreSQLFactory(SQLFactory):
+    def create_sql_manager(self, dataManager: DataManager) -> SQLManager:
+        return PostgreSQLManager(dataManager)
