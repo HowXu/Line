@@ -14,6 +14,16 @@
 
 ---
 
+<div align="center">
+
+![Application Screenshot](shoot.png)
+
+*Line AI Chat Application Interface*
+
+</div>
+
+---
+
 ## 📖 项目描述 | Project Description
 
 Line 是一个优雅的 AI 聊天客户端应用程序，模拟与前任女友的对话场景。项目采用多种经典设计模式，确保代码的可维护性、可扩展性和清晰度。
