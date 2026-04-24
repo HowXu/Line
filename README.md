@@ -338,7 +338,7 @@ Contributions are welcome! Please follow these steps:
 
 For questions or suggestions, please contact via:
 
-- **项目仓库**: [GitHub Issues](https://github.com/yourusername/SheJiMode/issues)
+- **项目仓库**: [GitHub Issues](https://github.com/HowXu/Line/issues)
 
 ---
 
