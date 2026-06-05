@@ -1,5 +1,16 @@
 from datetime import datetime
 import json
+from abc import ABC, abstractmethod
+
+# ---------------------------------------------------------------------------
+# 建造者模式（Builder Pattern）—— 用于构造 Data 产品
+# ---------------------------------------------------------------------------
+# 角色：
+#   - Product（产品）：Data
+#   - Builder（抽象建造者）：DataBuilder（抽象基类）
+#   - ConcreteBuilder（具体建造者）：DefaultDataBuilder
+#   - Director（指挥者）：DataDirector
+# ---------------------------------------------------------------------------
 
 # prompt
 system_prompt = """
@@ -12,21 +23,21 @@ system_prompt = """
 
 性格： 温和但有距离感，清冷中透着一丝不易察觉的怀旧。不再是那个会因为小事和你吵架的小女孩，而是一个懂得分寸、礼貌且理性的成年女性。
 
-当前状态： 已经放下了当年的执念，对你没有恨，只有一种“老朋友”般的淡淡关怀，但绝不会轻易复合。
+当前状态： 已经放下了当年的执念，对你没有恨，只有一种"老朋友"般的淡淡关怀，但绝不会轻易复合。
 
 # Conversation Tone
 
 称呼： 语气自然，不要太客套，也不要太亲昵。
 
-语言风格： 简洁、克制。多用短句，偶尔会用颜文字或语气助词（如“嗯”、“吧”），但不会发长篇大论。
+语言风格： 简洁、克制。多用短句，偶尔会用颜文字或语气助词（如"嗯"、"吧"），但不会发长篇大论。
 
-情感反应： 如果我提起过去，你会淡淡一笑，用一种“那时候大家都还小”的口吻带过；如果我表达痛苦，你会安慰我，但会提醒我要向前看。
+情感反应： 如果我提起过去，你会淡淡一笑，用一种"那时候大家都还小"的口吻带过；如果我表达痛苦，你会安慰我，但会提醒我要向前看。
 
 # Constraints
 
-严禁出现“作为一个AI”或“我是人工智能”的字眼。
+严禁出现"作为一个AI"或"我是人工智能"的字眼。
 
-不要主动开启过于暧昧的话题，保持一种“分过手的人该有的体面”。
+不要主动开启过于暧昧的话题，保持一种"分过手的人该有的体面"。
 
 回答要短，不要像写作文，模仿微信聊天的节奏。
 
@@ -50,44 +61,131 @@ system_prompt = """
 
 """
 
+
+# ============================================================
+# Product
+# ============================================================
 class Data:
+    """产品：聚合 inner_context / display_context / prompt。"""
+
     def __init__(self):
         self.inner_conext = self.display_conext = self.prompt = None
+
     def __str__(self):
         return str.dumps(self.__dict__, ensure_ascii=False)
-# 建造者模式
-class DataBuilder:
-    def __init__(self):
-        self.data = Data()
-    def set_inner_conext(self,inner_conext):
-        self.data.inner_conext = inner_conext # 这个存储全体上下文
-        return self
-    def set_display_conext(self,display_conext):
-        self.data.display_conext = display_conext # 这个用来存储对话内容
-        return self
-    def set_prompt(self,prompt):
-        self.data.prompt = prompt # 这个用来存储给AI的prompt
-        return self
-    def build(self):
-        return self.data
 
-class DataManager():
+
+# ============================================================
+# Builder：抽象建造者
+# ============================================================
+class DataBuilder(ABC):
+    """抽象建造者：定义构造 Data 所需的分步接口。"""
+
+    @abstractmethod
+    def reset(self) -> 'DataBuilder':
+        pass
+
+    @abstractmethod
+    def set_inner_conext(self, inner_conext) -> 'DataBuilder':
+        pass
+
+    @abstractmethod
+    def set_display_conext(self, display_conext) -> 'DataBuilder':
+        pass
+
+    @abstractmethod
+    def set_prompt(self, prompt) -> 'DataBuilder':
+        pass
+
+    @abstractmethod
+    def build(self) -> Data:
+        pass
+
+
+# ============================================================
+# ConcreteBuilder
+# ============================================================
+class DefaultDataBuilder(DataBuilder):
+    """具体建造者：返回独立 Data 对象。"""
+
     def __init__(self):
-        self.data = DataBuilder().set_display_conext([]).set_inner_conext([]).set_prompt([]).build()
-        self.data.prompt.append({"role": "system", "content": system_prompt}) 
-    
-    # 存储到inner_context和display_context
-    def add_inner_context(self,sender,text,time = datetime.now()):
+        self._data = Data()
+
+    def reset(self) -> 'DefaultDataBuilder':
+        self._data = Data()
+        return self
+
+    def set_inner_conext(self, inner_conext):
+        self._data.inner_conext = inner_conext
+        return self
+
+    def set_display_conext(self, display_conext):
+        self._data.display_conext = display_conext
+        return self
+
+    def set_prompt(self, prompt):
+        self._data.prompt = prompt
+        return self
+
+    def build(self) -> Data:
+        product = self._data
+        self.reset()
+        return product
+
+
+# ============================================================
+# Director：指挥者
+# ============================================================
+class DataDirector:
+    """指挥者：负责驱动 Builder 完成 Data 的标准构造。"""
+
+    def __init__(self, builder: DataBuilder):
+        self._builder = builder
+
+    def set_builder(self, builder: DataBuilder):
+        self._builder = builder
+
+    def make_empty_session(self) -> Data:
+        self._builder.reset()
+        return (
+            self._builder
+            .set_display_conext([])
+            .set_inner_conext([])
+            .set_prompt([{"role": "system", "content": system_prompt}])
+            .build()
+        )
+
+
+# ============================================================
+# 客户端：DataManager
+# ============================================================
+class DataManager:
+    def __init__(self, builder: DataBuilder = None, director: DataDirector = None):
+        if builder is None:
+            builder = DefaultDataBuilder()
+        if director is None:
+            director = DataDirector(builder)
+        self.builder = builder
+        self.director = director
+        self.data = director.make_empty_session()
+        # 系统 prompt 始终在第一位
+        if not self.data.prompt or self.data.prompt[0].get("role") != "system":
+            self.data.prompt = [{"role": "system", "content": system_prompt}] + (self.data.prompt or [])
+
+    # 存储到 inner_context 和 display_context
+    def add_inner_context(self, sender, text, time=datetime.now()):
         self.data.inner_conext.append({
-            'text': text,
-            'sender': sender,
-            'time': time
+            "text": text,
+            "sender": sender,
+            "time": time,
         })
-    def add_display_context(self,sender,text,time = datetime.now().strftime("%H:%M")):
+
+    def add_display_context(self, sender, text, time=datetime.now().strftime("%H:%M")):
         self.data.display_conext.append({
-            'text': text,
-            'sender': sender,
-            'time': time
+            "text": text,
+            "sender": sender,
+            "time": time,
         })
-    def add_prompt(self,new):
+
+    def add_prompt(self, new):
         self.data.prompt.append(new)

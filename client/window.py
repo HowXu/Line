@@ -6,7 +6,7 @@ import time
 from server.data import DataManager
 from server.ai import DeepSeekAPI
 from client.ui_component import (
-    FrameComponent, LabelComponent, ButtonComponent, 
+    FrameComponent, LabelComponent, ButtonComponent,
     ScrollableFrameComponent, TextboxComponent
 )
 from client.ui_composite import CompositeElement, LeafElement, UICompositeBuilder
@@ -18,36 +18,48 @@ from client.ui_flyweight import get_flyweight_factory, make_circular_image
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+
 class MainWindow:
-    # 主页面遵循单例模式
+    """
+    单例模式（Singleton Pattern）：
+    - 私有类属性 _instance 保存唯一实例
+    - 使用 _lock 保证多线程场景下也只创建一次
+    - 重写 __new__ 控制实例化
+    - 重写 __init__ 也加锁，避免重复初始化覆盖
+    """
+
     _instance = None
+    _lock = threading.Lock()
+    _initialized = False
+
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            return cls._instance
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self,dataManager: DataManager,deepSeekAPI: DeepSeekAPI):
-        self.dataManager = dataManager # 这个用来管理对话上下文 因为同时涉及前端渲染和后端推送
-        self.API = deepSeekAPI # 上下文统一
-        self.window = ctk.CTk()
-        self.window.title("Line") # window title
-        self.window.geometry('450x750') # window size
-        self.window.minsize(350, 500) # minimum window size
-        self.window.iconbitmap('resources/icon.ico')  # Windows 系统使用 .ico 文件
-        
-        self.friend_name = "Eva"
-        self.current_user = "me"
-        
-        # 初始化享元工厂
-        self.flyweight_factory = get_flyweight_factory()
-        
-        # 先初始化渲染外观（在 setup_ui 之前，因为 setup_ui 会调用 load_histories）
-        self.renderer = None  # 先设置为 None
-        
-        self.setup_ui()
-        
-        # 通过 init 更新 DeepSeek 上下文
+    def __init__(self, dataManager: DataManager, deepSeekAPI: DeepSeekAPI):
+        # 单例 + 线程安全：仅首次真正初始化
+        with MainWindow._lock:
+            if MainWindow._initialized:
+                return
+            self.dataManager = dataManager
+            self.API = deepSeekAPI
+            self.window = ctk.CTk()
+            self.window.title("Line")
+            self.window.geometry("450x750")
+            self.window.minsize(350, 500)
+            self.window.iconbitmap("resources/icon.ico")
+
+            self.friend_name = "Eva"
+            self.current_user = "me"
+
+            self.flyweight_factory = get_flyweight_factory()
+            self.renderer = None
+
+            self.setup_ui()
+            MainWindow._initialized = True
 
     def setup_ui(self):
         top_header = self.build_top_header()
